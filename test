@@ -1,0 +1,37 @@
+compare_provider_data <- function(current_df, old_df, state_name) {
+  # Ensure ORG_NPI is character (for consistent joins)
+  current_df <- current_df %>% mutate(ORG_NPI = as.character(ORG_NPI))
+  old_df <- old_df %>% mutate(ORG_NPI = as.character(ORG_NPI))
+
+  # New providers
+  new_providers <- anti_join(current_df, old_df, by = "ORG_NPI")
+  
+  # Dropped providers
+  dropped_providers <- anti_join(old_df, current_df, by = "ORG_NPI")
+  
+  # Changed providers (among shared NPIs)
+  changes <- current_df %>%
+    inner_join(old_df, by = "ORG_NPI", suffix = c("_new", "_old")) %>%
+    filter(
+      network_status_new != network_status_old |
+      accepting_new_patients_new != accepting_new_patients_old |
+      location_new != location_old
+    )
+
+  # Summary
+  summary_stats <- tibble(
+    State = state_name,
+    Total_Current = n_distinct(current_df$ORG_NPI),
+    Total_Previous = n_distinct(old_df$ORG_NPI),
+    New_Providers = nrow(new_providers),
+    Dropped_Providers = nrow(dropped_providers),
+    Changed_Providers = nrow(changes)
+  )
+
+  list(
+    summary = summary_stats,
+    new = new_providers,
+    dropped = dropped_providers,
+    changes = changes
+  )
+}

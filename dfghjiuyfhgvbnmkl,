@@ -1,0 +1,37 @@
+# Count unique providers in both datasets
+new_unique_providers <- n_distinct(California$ORG_NPI)
+old_unique_providers <- n_distinct(OLD_California$ORG_NPI)
+
+# Print the result
+cat("Unique Providers in New California Dataset: ", new_unique_providers, "\n")
+cat("Unique Providers in Old California Dataset: ", old_unique_providers, "\n")
+
+
+
+
+# Get new unique providers based on ORG_NPI
+new_unique_providers <- anti_join(California, OLD_California, by = "ORG_NPI") %>%
+  distinct(ORG_NPI)
+
+# Count the new unique providers
+nrow(new_unique_providers)
+
+
+
+
+# Check for duplicates in new dataset (California)
+sum(duplicated(California$ORG_NPI))
+
+# Check for duplicates in old dataset (OLD_California)
+sum(duplicated(OLD_California$ORG_NPI))
+
+
+
+
+# Show the new and dropped providers based on NPI/ORG_NPI
+new_providers <- anti_join(California, OLD_California, by = "ORG_NPI")
+dropped_providers <- anti_join(OLD_California, California, by = "ORG_NPI")
+
+# View some of the new and dropped providers
+head(new_providers)
+head(dropped_providers)

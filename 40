@@ -1,108 +1,109 @@
 library(tidyverse)
-library(readr)
 library(openxlsx)
 
-# ---- Load Your RDS Files ----
-California      <- readRDS("path/to/California.RDS")
-Colorado        <- readRDS("path/to/Colorado.RDS")
-Nevada          <- readRDS("path/to/Nevada.RDS")
-Vision          <- readRDS("path/to/Vision.RDS")
+# Load the datasets
+California <- readRDS("path/to/California.RDS")
+OLD_California <- readRDS("path/to/OLD_California.RDS")
 
-OLD_California  <- readRDS("path/to/OLD_California.RDS")
-OLD_Colorado    <- readRDS("path/to/OLD_Colorado.RDS")
-OLD_Nevada      <- readRDS("path/to/OLD_Nevada.RDS")
-OLD_Vision      <- readRDS("path/to/OLD_Vision.RDS")
+# Compare the total differences
+new_providers <- anti_join(California, OLD_California, by = "ORG_NPI")
+dropped_providers <- anti_join(OLD_California, California, by = "ORG_NPI")
 
-# ---- Step 1: Normalize NPI Column ----
-standardize_npi_column <- function(df, state) {
-  # Normalize column names based on the state
-  if (state == "California") {
-    df <- df %>% rename(NPI = ORG_NPI)
-  }
-  
-  # Ensure consistent column names
-  df %>%
-    rename(TAX_ID = ifelse("TAXID" %in% colnames(df), "TAXID", "Tax ID")) %>%
-    mutate(NPI = as.character(NPI))
-}
+# Print the differences
+total_new <- nrow(new_providers)
+total_dropped <- nrow(dropped_providers)
 
-# ---- Step 2: Deduplicate by NPI ----
-dedupe_by_npi <- function(df, state) {
-  df <- standardize_npi_column(df, state)
-  
-  df %>%
-    group_by(NPI) %>%
-    slice(1) %>%  # Take the first row per NPI
-    ungroup()
-}
+# Export to Excel
+wb <- createWorkbook()
+addWorksheet(wb, "New Providers")
+writeData(wb, "New Providers", new_providers)
+addWorksheet(wb, "Dropped Providers")
+writeData(wb, "Dropped Providers", dropped_providers)
+saveWorkbook(wb, "California_HMO_Comparison.xlsx", overwrite = TRUE)
 
-# ---- Step 3: Comparison Function ----
-compare_provider_data <- function(current_df, old_df, state_name) {
-  current_df <- dedupe_by_npi(current_df, state_name)
-  old_df     <- dedupe_by_npi(old_df, state_name)
+# Print summary
+cat("California Total New Providers: ", total_new, "\n")
+cat("California Total Dropped Providers: ", total_dropped, "\n")
 
-  # New providers
-  new_providers <- anti_join(current_df, old_df, by = "NPI")
 
-  # Dropped providers
-  dropped_providers <- anti_join(old_df, current_df, by = "NPI")
 
-  # Changed providers — compare common NPIs
-  changes <- current_df %>%
-    inner_join(old_df, by = "NPI", suffix = c("_new", "_old"))
+# Load the datasets
+Colorado <- readRDS("path/to/Colorado.RDS")
+OLD_Colorado <- readRDS("path/to/OLD_Colorado.RDS")
 
-  # Summary Table
-  summary_stats <- tibble(
-    State = state_name,
-    Total_Current = n_distinct(current_df$NPI),
-    Total_Previous = n_distinct(old_df$NPI),
-    New_Providers = nrow(new_providers),
-    Dropped_Providers = nrow(dropped_providers),
-    Changed_Providers = nrow(changes)
-  )
+# Compare the total differences
+new_providers <- anti_join(Colorado, OLD_Colorado, by = "NPI")
+dropped_providers <- anti_join(OLD_Colorado, Colorado, by = "NPI")
 
-  list(
-    summary = summary_stats,
-    new = new_providers,
-    dropped = dropped_providers,
-    changes = changes
-  )
-}
+# Print the differences
+total_new <- nrow(new_providers)
+total_dropped <- nrow(dropped_providers)
 
-# ---- Step 4: Apply to All States ----
-california_results <- compare_provider_data(California, OLD_California, "California")
-colorado_results   <- compare_provider_data(Colorado, OLD_Colorado, "Colorado")
-nevada_results     <- compare_provider_data(Nevada, OLD_Nevada, "Nevada")
-vision_results     <- compare_provider_data(Vision, OLD_Vision, "Vision")
+# Export to Excel
+wb <- createWorkbook()
+addWorksheet(wb, "New Providers")
+writeData(wb, "New Providers", new_providers)
+addWorksheet(wb, "Dropped Providers")
+writeData(wb, "Dropped Providers", dropped_providers)
+saveWorkbook(wb, "Colorado_HMO_Comparison.xlsx", overwrite = TRUE)
 
-# ---- Step 5: View Combined Summary ----
-all_summaries <- bind_rows(
-  california_results$summary,
-  colorado_results$summary,
-  nevada_results$summary,
-  vision_results$summary
-)
+# Print summary
+cat("Colorado Total New Providers: ", total_new, "\n")
+cat("Colorado Total Dropped Providers: ", total_dropped, "\n")
 
-print(all_summaries)
 
-# ---- Step 6: Export Each State to Excel ----
-export_to_excel <- function(results, state_name) {
-  wb <- createWorkbook()
-  
-  addWorksheet(wb, "New Providers")
-  writeData(wb, "New Providers", results$new)
-  
-  addWorksheet(wb, "Dropped Providers")
-  writeData(wb, "Dropped Providers", results$dropped)
-  
-  addWorksheet(wb, "Changed Providers")
-  writeData(wb, "Changed Providers", results$changes)
-  
-  saveWorkbook(wb, paste0(state_name, "_HMO_Comparison.xlsx"), overwrite = TRUE)
-}
+# Load the datasets
+Nevada <- readRDS("path/to/Nevada.RDS")
+OLD_Nevada <- readRDS("path/to/OLD_Nevada.RDS")
 
-# Export each state
-export_to_excel(california_results, "California")
-export_to_excel(colorado_results, "Colorado")
-export_to_excel(nevada_results, "Nevada")
-export_to_excel(vision_results, "Vision")
+# Compare the total differences
+new_providers <- anti_join(Nevada, OLD_Nevada, by = "NPI")
+dropped_providers <- anti_join(OLD_Nevada, Nevada, by = "NPI")
+
+# Print the differences
+total_new <- nrow(new_providers)
+total_dropped <- nrow(dropped_providers)
+
+# Export to Excel
+wb <- createWorkbook()
+addWorksheet(wb, "New Providers")
+writeData(wb, "New Providers", new_providers)
+addWorksheet(wb, "Dropped Providers")
+writeData(wb, "Dropped Providers", dropped_providers)
+saveWorkbook(wb, "Nevada_HMO_Comparison.xlsx", overwrite = TRUE)
+
+# Print summary
+cat("Nevada Total New Providers: ", total_new, "\n")
+cat("Nevada Total Dropped Providers: ", total_dropped, "\n")
+
+
+
+
+# Load the datasets
+Vision <- readRDS("path/to/Vision.RDS")
+OLD_Vision <- readRDS("path/to/OLD_Vision.RDS")
+
+# Compare the total differences
+new_providers <- anti_join(Vision, OLD_Vision, by = "NPI")
+dropped_providers <- anti_join(OLD_Vision, Vision, by = "NPI")
+
+# Print the differences
+total_new <- nrow(new_providers)
+total_dropped <- nrow(dropped_providers)
+
+# Export to Excel
+wb <- createWorkbook()
+addWorksheet(wb, "New Providers")
+writeData(wb, "New Providers", new_providers)
+addWorksheet(wb, "Dropped Providers")
+writeData(wb, "Dropped Providers", dropped_providers)
+saveWorkbook(wb, "Vision_HMO_Comparison.xlsx", overwrite = TRUE)
+
+# Print summary
+cat("Vision Total New Providers: ", total_new, "\n")
+cat("Vision Total Dropped Providers: ", total_dropped, "\n")
+
+
+
+
+

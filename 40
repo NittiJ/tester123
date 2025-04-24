@@ -14,17 +14,23 @@ OLD_Nevada      <- readRDS("path/to/OLD_Nevada.RDS")
 OLD_Vision      <- readRDS("path/to/OLD_Vision.RDS")
 
 # ---- Step 1: Normalize NPI Column ----
-standardize_npi_column <- function(df) {
-  if ("ORG_NPI" %in% names(df)) {
+standardize_npi_column <- function(df, state) {
+  # Normalize column names based on the state
+  if (state == "California") {
     df <- df %>% rename(NPI = ORG_NPI)
   }
-  df %>% mutate(NPI = as.character(NPI))
+  
+  # Ensure consistent column names
+  df %>%
+    rename(TAX_ID = ifelse("TAXID" %in% colnames(df), "TAXID", "Tax ID")) %>%
+    mutate(NPI = as.character(NPI))
 }
 
 # ---- Step 2: Deduplicate by NPI ----
-dedupe_by_npi <- function(df) {
+dedupe_by_npi <- function(df, state) {
+  df <- standardize_npi_column(df, state)
+  
   df %>%
-    standardize_npi_column() %>%
     group_by(NPI) %>%
     slice(1) %>%  # Take the first row per NPI
     ungroup()
@@ -32,8 +38,8 @@ dedupe_by_npi <- function(df) {
 
 # ---- Step 3: Comparison Function ----
 compare_provider_data <- function(current_df, old_df, state_name) {
-  current_df <- dedupe_by_npi(current_df)
-  old_df     <- dedupe_by_npi(old_df)
+  current_df <- dedupe_by_npi(current_df, state_name)
+  old_df     <- dedupe_by_npi(old_df, state_name)
 
   # New providers
   new_providers <- anti_join(current_df, old_df, by = "NPI")
@@ -43,12 +49,7 @@ compare_provider_data <- function(current_df, old_df, state_name) {
 
   # Changed providers — compare common NPIs
   changes <- current_df %>%
-    inner_join(old_df, by = "NPI", suffix = c("_new", "_old")) %>%
-    filter(
-      network_status_new != network_status_old |
-      accepting_new_patients_new != accepting_new_patients_old |
-      location_new != location_old
-    )
+    inner_join(old_df, by = "NPI", suffix = c("_new", "_old"))
 
   # Summary Table
   summary_stats <- tibble(

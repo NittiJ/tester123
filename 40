@@ -1,5 +1,6 @@
 library(tidyverse)
 library(readr)
+library(openxlsx)
 
 # ---- Load Your RDS Files ----
 California      <- readRDS("path/to/California.RDS")
@@ -20,10 +21,19 @@ standardize_npi_column <- function(df) {
   df %>% mutate(NPI = as.character(NPI))
 }
 
-# ---- Step 2: Comparison Function ----
+# ---- Step 2: Deduplicate by NPI ----
+dedupe_by_npi <- function(df) {
+  df %>%
+    standardize_npi_column() %>%
+    group_by(NPI) %>%
+    slice(1) %>%  # Take the first row per NPI
+    ungroup()
+}
+
+# ---- Step 3: Comparison Function ----
 compare_provider_data <- function(current_df, old_df, state_name) {
-  current_df <- standardize_npi_column(current_df)
-  old_df     <- standardize_npi_column(old_df)
+  current_df <- dedupe_by_npi(current_df)
+  old_df     <- dedupe_by_npi(old_df)
 
   # New providers
   new_providers <- anti_join(current_df, old_df, by = "NPI")
@@ -31,7 +41,7 @@ compare_provider_data <- function(current_df, old_df, state_name) {
   # Dropped providers
   dropped_providers <- anti_join(old_df, current_df, by = "NPI")
 
-  # Changed providers (check specific attributes — customize as needed)
+  # Changed providers — compare common NPIs
   changes <- current_df %>%
     inner_join(old_df, by = "NPI", suffix = c("_new", "_old")) %>%
     filter(
@@ -58,13 +68,13 @@ compare_provider_data <- function(current_df, old_df, state_name) {
   )
 }
 
-# ---- Step 3: Apply to All States ----
+# ---- Step 4: Apply to All States ----
 california_results <- compare_provider_data(California, OLD_California, "California")
 colorado_results   <- compare_provider_data(Colorado, OLD_Colorado, "Colorado")
 nevada_results     <- compare_provider_data(Nevada, OLD_Nevada, "Nevada")
 vision_results     <- compare_provider_data(Vision, OLD_Vision, "Vision")
 
-# ---- Step 4: View Combined Summary ----
+# ---- Step 5: View Combined Summary ----
 all_summaries <- bind_rows(
   california_results$summary,
   colorado_results$summary,
@@ -74,10 +84,7 @@ all_summaries <- bind_rows(
 
 print(all_summaries)
 
-
-
-library(openxlsx)
-
+# ---- Step 6: Export Each State to Excel ----
 export_to_excel <- function(results, state_name) {
   wb <- createWorkbook()
   
@@ -98,5 +105,3 @@ export_to_excel(california_results, "California")
 export_to_excel(colorado_results, "Colorado")
 export_to_excel(nevada_results, "Nevada")
 export_to_excel(vision_results, "Vision")
-
-

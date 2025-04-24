@@ -1,0 +1,27 @@
+library(tidyverse)
+library(openxlsx)
+
+# Load the datasets
+California <- readRDS("path/to/California.RDS")
+Colorado <- readRDS("path/to/Colorado.RDS")
+Nevada <- readRDS("path/to/Nevada.RDS")
+Vision <- readRDS("path/to/Vision.RDS")
+
+OLD_California <- readRDS("path/to/OLD_California.RDS")
+OLD_Colorado <- readRDS("path/to/OLD_Colorado.RDS")
+OLD_Nevada <- readRDS("path/to/OLD_Nevada.RDS")
+OLD_Vision <- readRDS("path/to/OLD_Vision.RDS")
+
+# Calculate total rows for each dataset
+total_rows <- tibble(
+  Dataset = c("California", "Colorado", "Nevada", "Vision"),
+  TotalNewRecords = c(nrow(California), nrow(Colorado), nrow(Nevada), nrow(Vision)),
+  TotalOldRecords = c(nrow(OLD_California), nrow(OLD_Colorado), nrow(OLD_Nevada), nrow(OLD_Vision)),
+  Difference = c(nrow(California) - nrow(OLD_California),
+                 nrow(Colorado) - nrow(OLD_Colorado),
+                 nrow(Nevada) - nrow(OLD_Nevada),
+                 nrow(Vision) - nrow(OLD_Vision))
+)
+
+# Print the results
+print(total_rows)

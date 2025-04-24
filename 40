@@ -1,0 +1,102 @@
+library(tidyverse)
+library(readr)
+
+# ---- Load Your RDS Files ----
+California      <- readRDS("path/to/California.RDS")
+Colorado        <- readRDS("path/to/Colorado.RDS")
+Nevada          <- readRDS("path/to/Nevada.RDS")
+Vision          <- readRDS("path/to/Vision.RDS")
+
+OLD_California  <- readRDS("path/to/OLD_California.RDS")
+OLD_Colorado    <- readRDS("path/to/OLD_Colorado.RDS")
+OLD_Nevada      <- readRDS("path/to/OLD_Nevada.RDS")
+OLD_Vision      <- readRDS("path/to/OLD_Vision.RDS")
+
+# ---- Step 1: Normalize NPI Column ----
+standardize_npi_column <- function(df) {
+  if ("ORG_NPI" %in% names(df)) {
+    df <- df %>% rename(NPI = ORG_NPI)
+  }
+  df %>% mutate(NPI = as.character(NPI))
+}
+
+# ---- Step 2: Comparison Function ----
+compare_provider_data <- function(current_df, old_df, state_name) {
+  current_df <- standardize_npi_column(current_df)
+  old_df     <- standardize_npi_column(old_df)
+
+  # New providers
+  new_providers <- anti_join(current_df, old_df, by = "NPI")
+
+  # Dropped providers
+  dropped_providers <- anti_join(old_df, current_df, by = "NPI")
+
+  # Changed providers (check specific attributes — customize as needed)
+  changes <- current_df %>%
+    inner_join(old_df, by = "NPI", suffix = c("_new", "_old")) %>%
+    filter(
+      network_status_new != network_status_old |
+      accepting_new_patients_new != accepting_new_patients_old |
+      location_new != location_old
+    )
+
+  # Summary Table
+  summary_stats <- tibble(
+    State = state_name,
+    Total_Current = n_distinct(current_df$NPI),
+    Total_Previous = n_distinct(old_df$NPI),
+    New_Providers = nrow(new_providers),
+    Dropped_Providers = nrow(dropped_providers),
+    Changed_Providers = nrow(changes)
+  )
+
+  list(
+    summary = summary_stats,
+    new = new_providers,
+    dropped = dropped_providers,
+    changes = changes
+  )
+}
+
+# ---- Step 3: Apply to All States ----
+california_results <- compare_provider_data(California, OLD_California, "California")
+colorado_results   <- compare_provider_data(Colorado, OLD_Colorado, "Colorado")
+nevada_results     <- compare_provider_data(Nevada, OLD_Nevada, "Nevada")
+vision_results     <- compare_provider_data(Vision, OLD_Vision, "Vision")
+
+# ---- Step 4: View Combined Summary ----
+all_summaries <- bind_rows(
+  california_results$summary,
+  colorado_results$summary,
+  nevada_results$summary,
+  vision_results$summary
+)
+
+print(all_summaries)
+
+
+
+library(openxlsx)
+
+export_to_excel <- function(results, state_name) {
+  wb <- createWorkbook()
+  
+  addWorksheet(wb, "New Providers")
+  writeData(wb, "New Providers", results$new)
+  
+  addWorksheet(wb, "Dropped Providers")
+  writeData(wb, "Dropped Providers", results$dropped)
+  
+  addWorksheet(wb, "Changed Providers")
+  writeData(wb, "Changed Providers", results$changes)
+  
+  saveWorkbook(wb, paste0(state_name, "_HMO_Comparison.xlsx"), overwrite = TRUE)
+}
+
+# Export each state
+export_to_excel(california_results, "California")
+export_to_excel(colorado_results, "Colorado")
+export_to_excel(nevada_results, "Nevada")
+export_to_excel(vision_results, "Vision")
+
+
